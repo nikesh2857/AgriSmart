@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <style>
+      .goog-te-banner-frame { display: none !important; }
+      body { top: 0px !important; }
+      #google_translate_element select {
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: none;
+        background-color: transparent;
+        font-size: 14px;
+        font-weight: 500;
+        color: #475569;
+        outline: none;
+        cursor: pointer;
+      }
+      .goog-logo-link { display: none !important; }
+      .goog-te-gadget { color: transparent !important; margin: 0; display: flex; align-items: center; }
+      .goog-te-gadget span { display: none !important; }
+      .goog-te-gadget .goog-te-combo { margin: 0; }
+      #goog-gt-tt { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

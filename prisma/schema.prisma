@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  FARMER
+  BUYER
+  WORKER
+  ADMIN
+}
+
+enum JobStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum RentalStatus {
+  RESERVED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ProductCategory {
+  SEEDS
+  FERTILIZERS
+  PESTICIDES
+  TOOLS
+  MACHINERY
+  OTHER
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(uuid())
+  firebaseUid String   @unique
+  email       String   @unique
+  name        String?
+  phone       String?
+  role        Role     @default(FARMER)
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdJobs        Job[]               @relation("FarmerJobs")
+  assignments        JobAssignment[]     @relation("WorkerAssignments")
+  notifications      Notification[]
+  products           Product[]           @relation("SellerProducts")
+  orders             Order[]             @relation("BuyerOrders")
+  rentals            Rental[]
+  aiHistory          AiHistory[]
+  tasks              Task[]
+  farmProfile        FarmProfile?
+  financials         FinancialRecord[]
+  plots              Plot[]
+  jobRejections      JobRejection[]
+  workerLocationLogs WorkerLocationLog[]
+  recommendationHistory RecommendationHistory[]
+}
+
+model Job {
+  id             String    @id @default(uuid())
+  farmerId       String
+  workName       String
+  workAddress    String
+  dateTime       DateTime
+  workersNeeded  Int
+  payPerWorker   Decimal?  @db.Decimal(10, 2)
+  description    String?
+  lat            Float?
+  lng            Float?
+  polygonGeoJson Json?
+  arrivalRadius  Int       @default(100)
+  status         JobStatus @default(PENDING)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  farmer       User                @relation("FarmerJobs", fields: [farmerId], references: [id])
+  assignments  JobAssignment[]
+  rejections   JobRejection[]
+  locationLogs WorkerLocationLog[]
+}
+
+model JobAssignment {
+  id         String           @id @default(uuid())
+  jobId      String
+  workerId   String
+  status     AssignmentStatus @default(ASSIGNED)
+  checkInAt  DateTime?
+  checkOutAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  job    Job  @relation(fields: [jobId], references: [id])
+  worker User @relation("WorkerAssignments", fields: [workerId], references: [id])
+
+  @@unique([jobId, workerId])
+}
+
+model JobRejection {
+  id        String   @id @default(uuid())
+  jobId     String
+  workerId  String
+  createdAt DateTime @default(now())
+
+  job    Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker User @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, workerId])
+}
+
+model WorkerLocationLog {
+  id        String   @id @default(uuid())
+  jobId     String
+  workerId  String
+  lat       Float
+  lng       Float
+  timestamp DateTime @default(now())
+
+  job    Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker User @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─── Marketplace ─────────────────────────────────────────────────────────────
+
+model Product {
+  id          String          @id @default(uuid())
+  sellerId    String
+  name        String
+  description String?
+  category    ProductCategory @default(OTHER)
+  price       Decimal         @db.Decimal(10, 2)
+  stock       Int             @default(0)
+  imageUrl    String?
+  deletedAt   DateTime? // Soft delete for order integrity
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  seller     User        @relation("SellerProducts", fields: [sellerId], references: [id])
+  orderItems OrderItem[]
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  buyerId     String
+  totalAmount Decimal     @db.Decimal(10, 2)
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  buyer User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  items OrderItem[]
+}
+
+model OrderItem {
+  id              String  @id @default(uuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  priceAtPurchase Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+// ─── Equipment Rentals ────────────────────────────────────────────────────────
+
+model Equipment {
+  id             String   @id @default(uuid())
+  name           String
+  description    String?
+  dailyRate      Decimal  @db.Decimal(10, 2)
+  inventoryCount Int      @default(1)
+  imageUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  rentals Rental[]
+}
+
+model Rental {
+  id          String       @id @default(uuid())
+  equipmentId String
+  renterId    String
+  startDate   DateTime     @db.Date
+  endDate     DateTime     @db.Date
+  totalCost   Decimal      @db.Decimal(10, 2)
+  status      RentalStatus @default(RESERVED)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+  renter    User      @relation(fields: [renterId], references: [id])
+}
+
+enum AiHistoryType {
+  CHAT
+  VISION
+  VIDEO
+  SEARCH
+  IMAGE_GEN
+}
+
+model AiHistory {
+  id              String        @id @default(uuid())
+  userId          String
+  type            AiHistoryType
+  prompt          String
+  responseSummary String
+  fileUrl         String?
+  tokensUsed      Int? // For cost tracking
+  createdAt       DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─── Farmer Tasks (ERP) ──────────────────────────────────────────────────────
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+}
+
+model Task {
+  id        String     @id @default(uuid())
+  userId    String
+  title     String
+  status    TaskStatus @default(PENDING)
+  date      DateTime   @db.Date
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─── ERP Models ──────────────────────────────────────────────────────────────
+
+model FarmProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  totalArea Decimal  @default(0.0) @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model FinancialRecord {
+  id          String          @id @default(uuid())
+  userId      String
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  category    String
+  description String?
+  date        DateTime        @db.Date
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Plot {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  crop      String
+  area      Decimal  @db.Decimal(10, 2)
+  status    String // e.g., "Growing Phase", "Irrigation & Prep"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── AI Seed Recommendation Engine ──────────────────────────────────────────
+
+model CropCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  crops     Crop[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Crop {
+  id              String         @id @default(uuid())
+  categoryId      String
+  name            String         @unique
+  category        CropCategory   @relation(fields: [categoryId], references: [id])
+  varieties       SeedVariety[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model SeedVariety {
+  id                String   @id @default(uuid())
+  cropId            String
+  name              String
+  brand             String?
+  growingSeason     String[] // e.g., ["KHARIF", "RABI"]
+  suitableStates    String[]
+  suitableDistricts String[]
+  suitableSoilTypes String[]
+  waterReqMin       Float?
+  waterReqMax       Float?
+  tempRangeMin      Float?
+  tempRangeMax      Float?
+  rainfallMin       Float?
+  rainfallMax       Float?
+  diseaseResistance String[]
+  pestResistance    String[]
+  yieldEstMin       Float?
+  yieldEstMax       Float?
+  crop              Crop     @relation(fields: [cropId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model RecommendationRule {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  conditions  Json     // The JSON logic to evaluate
+  impact      Json     // How it affects the score (e.g. { "score": "+25" })
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RecommendationHistory {
+  id             String                   @id @default(uuid())
+  userId         String
+  inputParams    Json
+  results        Json
+  explanation    String?
+  createdAt      DateTime                 @default(now())
+  user           User                     @relation(fields: [userId], references: [id])
+  feedbacks      RecommendationFeedback[]
+}
+
+model RecommendationFeedback {
+  id             String                @id @default(uuid())
+  historyId      String
+  actualYield    Float?
+  diseaseOccured Boolean               @default(false)
+  profit         Decimal?              @db.Decimal(10,2)
+  satisfaction   Int?                  // 1-5 rating
+  history        RecommendationHistory @relation(fields: [historyId], references: [id])
+  createdAt      DateTime              @default(now())
+}

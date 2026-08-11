@@ -1,0 +1,11 @@
+{
+  "name": "Remix: Smart Agriculture Ecosystem",
+  "description": "Comprehensive platform integrating farm management, marketplaces, AI crop assistance, IoT monitoring, and government schemes.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

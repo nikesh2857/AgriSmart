@@ -1,0 +1,22 @@
+{
+  "entities": {
+    "Task": {
+      "title": "Task",
+      "description": "A task created by a user.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "date": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["title", "status", "date", "userId"]
+    }
+  },
+  "firestore": {
+    "tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Tasks for a specific user"
+    }
+  }
+}
